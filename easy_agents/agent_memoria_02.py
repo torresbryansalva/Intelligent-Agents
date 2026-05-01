@@ -38,7 +38,7 @@ class AgentEvolucionado:
 
 # CONFIGURACION DEL MUNDO
 N = 3 
-ambiente = np.random.choice([0,1], size=(N, N), p=[0.4, 0.6],)
+ambiente = np.random.choice([0,1], size=(N, N), p=[0.4, 0.6])
 pos_actual = [0, 0] 
 print("--- AMBIENTE INICIAL ---")
 print(ambiente)

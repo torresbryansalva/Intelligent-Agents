@@ -13,7 +13,7 @@ log = obtener_logger("AgenteNXN")
 
 # CONFIGURACION DEL AMBIENTE
 
-# 0 = Vacio,  1 = Bacio (B), -1 = obstaculo (Negro)
+# 0 = Vacio,  1 = Basura (B), -1 = obstaculo (Negro)
 
 ambiente  = np.zeros((7, 7))
 
