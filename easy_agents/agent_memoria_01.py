@@ -1,5 +1,13 @@
+import os
+import sys
 import time
 import numpy as np
+
+# Agregamos la carpeta raíz (ai-search-agents) al buscador de Python
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from utils.logging_config import obtener_logger
+
+log = obtener_logger("AgenteMemoria")
 
 # 1. EL ENTORNO REAL
 ambiente = np.array([
@@ -36,11 +44,10 @@ class AgenteConMemoria:
 agente = AgenteConMemoria(ambiente.shape)
 pos_actual = [0, 0]
 
-print("Iniciando Agente con Memoria Interna")
+#print("Iniciando Agente con Memoria Interna")
+log.info(" Iniciando Agente con Memoria Interna")
 
 for paso in range(6):
-    print("AMBIENTE ACTUAL")
-    print(ambiente)
 
     f, c = pos_actual
     sucio_real = ambiente[f, c] == 1
@@ -48,12 +55,11 @@ for paso in range(6):
     # paso clave
     agente.actualizar_memoria((f,c), sucio_real)
     accion = agente.decidir_accion(f, c, sucio_real)
-    print("MAPA MENTAL ACTUAL:")
-    print(agente.mapa_mental)
-
-    print(f"\n--- PASO {paso + 1} ---")
-    print(f"Posicion: [{f},{c}] | Accion: {accion}")
-    print(f"Celdas que recuerdo haber visitado: {agente.visitados}")
+    print("AMBIENTE ACTUAL")
+    print(ambiente)
+    log.info(f"\n--- PASO {paso + 1} ---")
+    log.info(f"Posicion: [{f},{c}] | Accion: {accion}")
+    log.info(f"Celdas que recuerdo haber visitado: {agente.visitados}")
 
     if accion == 'Limpiar':
         ambiente[f,c] = 0
@@ -64,4 +70,5 @@ for paso in range(6):
     elif accion == "IZQUIERDA": pos_actual = [1, 0]
     elif accion == "ARRIBA":    pos_actual = [0, 0]
 
+    log.info(f"Mapa Mental del Agente:\n{agente.mapa_mental}")
     time.sleep(1)
