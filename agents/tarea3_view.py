@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 
 # --- Configuración inicial del ambiente (Tu lógica original) ---
 N, M = 7, 8
-ambiente = np.random.choice([0, 1, -1], size=(N, M), p=[0.5, 0.4, 0.1])
+ambiente = np.random.choice([0, 1, -1], size=(N, M), p=[0.4, 0.5, 0.1])
 f  = np.random.randint(0, N-1)
 c  = np.random.randint(0, M-1)
 agent_pos = [f, c]
 orientacion = 1 
-max_pasos = 25
+max_pasos = 10
 
 # ===== FUNCIONES DE LÓGICA (Tus funciones originales) =====
 def obtener_orientacion_str(obs):
@@ -149,7 +149,7 @@ def dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_dela
 # ===== BUCLE DE OPERACIÓN CON INTERFAZ ======
 try:
     for paso in range(max_pasos):
-        # Lógica de sensores
+        # Lógica de sensores (PERCEPCIONES)
         f, c = agent_pos
         es_oscuro = ambiente[f, c] == 1
         estado_actual = camara1(es_oscuro)
@@ -227,3 +227,15 @@ try:
 
 except KeyboardInterrupt:
     print("Simulación detenida por el usuario.")
+
+
+
+
+
+
+
+"""
+Como correr: En terminal de VScode 
+* Abrir terminal:       ctrl + shift + ñ
+* Correr:               python agents/tarea3_view.py 
+"""
