@@ -5,17 +5,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- Configuración inicial del ambiente (Tu lógica original) ---
-N, M = 7, 8
+N, M = 10, 10
 ambiente = np.random.choice([0, 1, -1], size=(N, M), p=[0.4, 0.5, 0.1])
 f  = np.random.randint(0, N-1)
 c  = np.random.randint(0, M-1)
 agent_pos = [f, c]
 orientacion = 1 
-max_pasos = 10
+max_pasos = 4
+
+print(f"  =========================================== REGLAS ================================================")
+print(f"| Regla |    Borde    |  Piso Actual  |   Piso Izq   |  Piso Cen  |  Piso Der  |  Orient  |  Accion  |")
+print(f"|   1   |   Contacto  |       *       |      *       |      *     |     *      |    *     |    +90   |")
+print(f"|   2   | No Contacto |    Oscuro     |    Oscuro    |   Oscuro   |   Oscuro   |    *     |  Avanzar |")
+print(f"|   3   | No Contacto |    Oscuro     |  No Oscuro   |   Oscuro   |  No Oscuro |    *     |  Avanzar |")
+print(f"|   4   | No Contacto |    Oscuro     |    Oscuro    |  No Oscuro |  No Oscuro |    *     |    -90   |")
+print(f"|   5   | No Contacto |    Oscuro     |  No Oscuro   |  No Oscuro |   Oscuro   |    *     |    +90   |")
+print(f"|   6   | No Contacto |    Oscuro     |    Borde     |      *     |     *      |    *     |    +90   |")
+print(f"|   7   | No Contacto |    Oscuro     |      *       |      *     |   Borde    |    *     |    -90   |")
+print(f"|   8   | No Contacto |  No Oscuro    |    Oscuro    |      *     |     *      |    *     |    -90   |")
+print(f"|   9   | No Contacto |  No Oscuro    |      *       |      *     |   Oscuro   |    *     |    +90   |")
+print(f"|  10   | No Contacto |  No Oscuro    |  No Oscuro   |   Oscuro   |  No Oscuro |    *     |  Avanzar |")
+print(f"|  11   | No Contacto |  No Oscuro    |  No Oscuro   |  No Oscuro |  No Oscuro |    *     |  Avanzar |")
+
 
 # ===== FUNCIONES DE LÓGICA (Tus funciones originales) =====
 def obtener_orientacion_str(obs):
-    return {0: "▲", 1: "▶", 2: "▼", 3: "◀"}[obs]
+    return {0: "Arriba", 1: "Derecha", 2: "Abajo", 3: "Izquierda"}[obs]
 
 def camara1(vision):
     """
@@ -64,7 +79,7 @@ def posicion_celdas_delanteras(ambiente, orientacion, pos):
         cen_valor = get_valor_seguro(ambiente, i+1, j)
         der_valor = get_valor_seguro(ambiente, i+1, j-1)
     
-    # Icquierda
+    # Izquierda
     else:
         izq_valor = get_valor_seguro(ambiente, i+1, j-1)
         cen_valor = get_valor_seguro(ambiente, i, j-1)
@@ -72,16 +87,29 @@ def posicion_celdas_delanteras(ambiente, orientacion, pos):
 
     return [izq_valor, cen_valor, der_valor]
 
-def decidir_accion(percepcion_estados):
-    
-    if percepcion_estados['AVANZAR CELDA CENTRAL'] == "OSCURO":     # prioridad 1 buscar por el cen
+def decidir_accion(estados_delanteros, pasos_sin_linea):
+    izq = estados_delanteros['AVANZAR CELDA IZQUIERDA']
+    cen = estados_delanteros['AVANZAR CELDA CENTRAL']
+    der = estados_delanteros['AVANZAR CELDA DERECHA']
+
+    if cen == "OSCURO":     # prioridad 1 buscar por el cen
         return "AVANZAR CELDA CENTRAL"
-    elif percepcion_estados['AVANZAR CELDA DERECHA'] == "OSCURO":   # prioridad 2 buscar por el der
+    if der == "OSCURO":   # prioridad 2 buscar por el der
         return "AVANZAR CELDA DERECHA"
-    elif percepcion_estados['AVANZAR CELDA IZQUIERDA'] == "OSCURO":   # prioridad 3 buscar por el izq
+    if izq == "OSCURO":  # prioridad 3 buscar por el izq
         return "AVANZAR CELDA IZQUIERDA"
-    else:
+    
+    # Línea perdida: rotar una vez, luego avanzar
+    # Ciclo determinista: +90 → avanzar → -90 → avanzar → repite
+    if pasos_sin_linea % 4 == 0:
+        return "ROTAR_+90"
+    elif pasos_sin_linea % 4 == 1:
+        return "AVANZAR CELDA CENTRAL"
+    elif pasos_sin_linea % 4 == 2:
         return "ROTAR_-90"
+    else:
+        return "AVANZAR CELDA CENTRAL"
+    
 
 # ===== CONFIGURACIÓN DE LA INTERFAZ MATPLOTLIB =====
 plt.ion() # Modo interactivo encendido
@@ -89,13 +117,18 @@ fig, (ax_mapa, ax_info) = plt.subplots(1, 2, figsize=(10, 5), gridspec_kw={'widt
 
 def dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_delanteros):
     ax_mapa.clear()
-    display_map = np.zeros((N, M))
+    
+    display_map = np.zeros((N, M, 3))  # ahora es RGB
     for r in range(N):
         for c in range(M):
-            if ambiente[r, c] == 1: display_map[r, c] = 0.5  # Gris para camino
-            elif ambiente[r, c] == -1: display_map[r, c] = 1 # Negro para pared
-    
-    ax_mapa.imshow(display_map, cmap='binary', origin='upper')
+            if ambiente[r, c] == 1:
+                display_map[r, c] = [0.3, 0.3, 0.3]           # negro → línea
+            elif ambiente[r, c] == -1:
+                display_map[r, c] = [0.55, 0.27, 0.07]  # marrón → pared
+            else:
+                display_map[r, c] = [1, 1, 1]            # blanco → camino libre
+
+    ax_mapa.imshow(display_map, origin='upper')  # sin cmap, ahora usa RGB directo
     
     # Dibujar al Robot (una flecha roja)
     # Ajustamos la rotación (Matplotlib usa grados, 0 es derecha)
@@ -115,6 +148,10 @@ def dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_dela
              width=0.08,          # Grosor de la colita
              fc='red', ec='darkred', zorder=5)
     
+    # ── agregar estas 2 líneas ──
+    ax_mapa.set_xlim(-0.5, M - 0.5)
+    ax_mapa.set_ylim(N - 0.5, -0.5)  # invertido porque origin='upper'
+
     # Estética de la cuadrícula
     ax_mapa.set_title(f"Ambiente - Paso {paso}")
     ax_mapa.grid(which='minor', color='black', linestyle='-', linewidth=1)
@@ -150,43 +187,45 @@ def dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_dela
 try:
     for paso in range(max_pasos):
         # Lógica de sensores (PERCEPCIONES)
+
         f, c = agent_pos
         es_oscuro = ambiente[f, c] == 1
         estado_actual = camara1(es_oscuro)
         v_izq, v_cen, v_der = posicion_celdas_delanteras(ambiente, orientacion, agent_pos)
         estados_delanteros = camara2(v_izq, v_cen, v_der)
-        accion = decidir_accion(estados_delanteros)
-    
+
+        # detectar si hay linea visible
+        hay_linea = any(
+            v == "OSCURO" for v in estados_delanteros.values()
+        )
+
+        if hay_linea:
+            pasos_sin_linea = 0 # resetear contador 
+        else:
+            pasos_sin_linea += 1 #acumular perdida
+
+        accion = decidir_accion(estados_delanteros, pasos_sin_linea)
         
         # Dibujar antes de mover para ver el estado actual
         dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_delanteros)
-        '''
-        # DIBUJAR EL ROBOT EN EL MAPA
-        print(f"--- AMBIENTE {paso} ---")
-        for row in range(N):
-            fila_str = ""
-            for col in range(M):
-                if [row, col] == agent_pos:
-                    fila_str = fila_str + f" {obtener_orientacion_str(orientacion)}  "
-                elif ambiente[row, col] == 1:
-                    fila_str = fila_str + " 1 "
-                elif ambiente[row, col] == -1:
-                    fila_str = fila_str + " P "
-                else:
-                    fila_str = fila_str + " 0 "
-
-            print(fila_str)
-
-
-        print(f"Posicion: {agent_pos} | Orientacion:{obtener_orientacion_str(orientacion)}")
-        print(f"valores delanteos:{v_izq}, {v_cen}, {v_der}")
+        
+        print(f"\nPASO: {paso}")
+        print(f"Posicion: {agent_pos} | Orientacion: {obtener_orientacion_str(orientacion)}")
+        print(f"valores delanteos: Izq= {v_izq}, Cen= {v_cen}, Der= {v_der}")
         print(f"Estado Actual: {estado_actual}")
         print(f"Estados delante: {estados_delanteros}")
         print(f"Accion: {accion}")
-        '''
+        print(f"="*70)
+
         # EJECUTAR LAS ACCIONES (Simplificado para el ejemplo)
+        
         if accion == "ROTAR_-90":
             orientacion = (orientacion + 1) % 4
+            
+        elif accion =="ROTAR_+90":
+            if orientacion == 0:
+                orientacion = 4
+            orientacion = (orientacion - 1) % 4
         else:
             # Lógica de movimiento
             nf, nc = f, c
