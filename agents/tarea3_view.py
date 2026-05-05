@@ -11,7 +11,7 @@ f  = np.random.randint(0, N-1)
 c  = np.random.randint(0, M-1)
 agent_pos = [f, c]
 orientacion = 1 
-max_pasos = 4
+max_pasos = 30
 
 print(f"  =========================================== REGLAS ================================================")
 print(f"| Regla |    Borde    |  Piso Actual  |   Piso Izq   |  Piso Cen  |  Piso Der  |  Orient  |  Accion  |")
