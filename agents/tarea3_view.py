@@ -30,11 +30,19 @@ print(f"|  11   | No Contacto |  No Oscuro    |  No Oscuro   |  No Oscuro |  No 
 
 # ===== FUNCIONES DE LÓGICA (Tus funciones originales) =====
 def obtener_orientacion_str(obs):
+    """
+    Funcion que se encarga de obtener la direccion del agente
+    input: int
+    output: str
+    """
+
     return {0: "Arriba", 1: "Derecha", 2: "Abajo", 3: "Izquierda"}[obs]
 
 def camara1(vision):
     """
-    Solo mira el piso: Oscuro
+    Funcion que simula la la camara 1 que sol mira el piso
+    input: bool
+    output: str
     """
     if vision:
         return "OSCURO"
@@ -42,7 +50,9 @@ def camara1(vision):
 
 def camara2(valor1, valor2, valor3):
     """
-    Observa las 3 celdas delante del robot
+    Funcion que simula la la camara 2 y que observa las 3 celdas delante del robot
+    input: int, int, int
+    output: dic{key:value}
     """
     
     valores = {0:'NO OSCURO', 1: 'OSCURO', -1:'PARED'}
@@ -53,12 +63,24 @@ def camara2(valor1, valor2, valor3):
         }
 
 def get_valor_seguro(matrix, i, j, valor_por_defecto=-1):
+    """
+    Funcion que verifica los limites de la matriz y algun calculo se sale de los lmites se marca como pared :-1
+
+    input: np.ndimm, int, int, int
+    output: int
+    """
     filas, columnas = matrix.shape
     if 0 <= i < filas and 0 <= j < columnas:
         return matrix[i,j]
     return valor_por_defecto
 
 def posicion_celdas_delanteras(ambiente, orientacion, pos):
+    """
+    fucion que se encarga de obtener las posiciones i, j de la celdas delantes vistas por la camara 2
+
+    input: matriz(n, m), int, tupla(int, int)
+    output: list(int, int, int)
+    """
     i, j = pos
 
     # Arriba
@@ -88,6 +110,12 @@ def posicion_celdas_delanteras(ambiente, orientacion, pos):
     return [izq_valor, cen_valor, der_valor]
 
 def decidir_accion(estados_delanteros, pasos_sin_linea):
+    """
+    funcion que se encarga de mover/girar al agente a una estado nuevo
+
+    input: dict(key, values), int
+    output: str
+    """
     izq = estados_delanteros['AVANZAR CELDA IZQUIERDA']
     cen = estados_delanteros['AVANZAR CELDA CENTRAL']
     der = estados_delanteros['AVANZAR CELDA DERECHA']
@@ -107,6 +135,8 @@ def decidir_accion(estados_delanteros, pasos_sin_linea):
         return "AVANZAR CELDA CENTRAL"
     elif pasos_sin_linea % 4 == 2:
         return "ROTAR_-90"
+    elif pasos_sin_linea % 4 == 3: # caso en las esquinas y estado blanco
+        return "ROTAR_-90"
     else:
         return "AVANZAR CELDA CENTRAL"
     
@@ -116,6 +146,9 @@ plt.ion() # Modo interactivo encendido
 fig, (ax_mapa, ax_info) = plt.subplots(1, 2, figsize=(10, 5), gridspec_kw={'width_ratios': [1, 1]})
 
 def dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_delanteros):
+    """
+    Funcion que se encarga de dibujar la interfaz vizual
+    """
     ax_mapa.clear()
     
     display_map = np.zeros((N, M, 3))  # ahora es RGB
@@ -184,6 +217,9 @@ def dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_dela
     plt.pause(1.0)
 
 # ===== BUCLE DE OPERACIÓN CON INTERFAZ ======
+"""
+Funcion principal del agente donde  percibe su entonro y actua
+"""
 try:
     for paso in range(max_pasos):
         # Lógica de sensores (PERCEPCIONES)
