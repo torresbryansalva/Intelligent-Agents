@@ -1,9 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import os
-carpeta_frames = "frames"
-os.makedirs(carpeta_frames, exist_ok=True)
 
 # ===== CONFIGURACIÓN INICIAL DEL AMBIENTE =====
 N, M = 7, 8
@@ -190,8 +187,8 @@ def dibujar(paso):
     plt.pause(0.7)
 
     # GUARDAR IMAGEN
-    nombre_archivo = os.path.join(carpeta_frames, f"frame_paso_{paso + 1:03d}.png")
-    plt.savefig(nombre_archivo)
+    #nombre_archivo = os.path.join(carpeta_frames, f"frame_paso_{paso + 1:03d}.png")
+    #plt.savefig(nombre_archivo)
 
 # ===== LOOP =====
 pasos_sin_linea = 0
