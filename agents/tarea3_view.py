@@ -1,316 +1,262 @@
-import os
-import sys
-import time
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import os
+carpeta_frames = "frames"
+os.makedirs(carpeta_frames, exist_ok=True)
 
-# --- Configuración inicial del ambiente (Tu lógica original) ---
-N, M = 10, 10
+# ===== CONFIGURACIÓN INICIAL DEL AMBIENTE =====
+N, M = 7, 8
 ambiente = np.random.choice([0, 1, -1], size=(N, M), p=[0.4, 0.5, 0.1])
-f  = np.random.randint(0, N-1)
-c  = np.random.randint(0, M-1)
+
+f = np.random.randint(0, N)
+c = np.random.randint(0, M)
+
+# Evitar iniciar en pared
+while ambiente[f, c] == -1:
+    f = np.random.randint(0, N)
+    c = np.random.randint(0, M)
+
 agent_pos = [f, c]
-orientacion = 1 
-max_pasos = 30
+orientacion = 1
+max_pasos = 100
 
-print(f"  =========================================== REGLAS ================================================")
-print(f"| Regla |    Borde    |  Piso Actual  |   Piso Izq   |  Piso Cen  |  Piso Der  |  Orient  |  Accion  |")
-print(f"|   1   |   Contacto  |       *       |      *       |      *     |     *      |    *     |    +90   |")
-print(f"|   2   | No Contacto |    Oscuro     |    Oscuro    |   Oscuro   |   Oscuro   |    *     |  Avanzar |")
-print(f"|   3   | No Contacto |    Oscuro     |  No Oscuro   |   Oscuro   |  No Oscuro |    *     |  Avanzar |")
-print(f"|   4   | No Contacto |    Oscuro     |    Oscuro    |  No Oscuro |  No Oscuro |    *     |    -90   |")
-print(f"|   5   | No Contacto |    Oscuro     |  No Oscuro   |  No Oscuro |   Oscuro   |    *     |    +90   |")
-print(f"|   6   | No Contacto |    Oscuro     |    Borde     |      *     |     *      |    *     |    +90   |")
-print(f"|   7   | No Contacto |    Oscuro     |      *       |      *     |   Borde    |    *     |    -90   |")
-print(f"|   8   | No Contacto |  No Oscuro    |    Oscuro    |      *     |     *      |    *     |    -90   |")
-print(f"|   9   | No Contacto |  No Oscuro    |      *       |      *     |   Oscuro   |    *     |    +90   |")
-print(f"|  10   | No Contacto |  No Oscuro    |  No Oscuro   |   Oscuro   |  No Oscuro |    *     |  Avanzar |")
-print(f"|  11   | No Contacto |  No Oscuro    |  No Oscuro   |  No Oscuro |  No Oscuro |    *     |  Avanzar |")
+# ===== FUNCIONES AUXILIARES====
+def obtener_orientacion_str(o):
+    return {0: "Arriba", 1: "Derecha", 2: "Abajo", 3: "Izquierda"}[o]
 
+def camara1(v):
+    return "OSCURO" if v else "NO OSCURO"
 
-# ===== FUNCIONES DE LÓGICA (Tus funciones originales) =====
-def obtener_orientacion_str(obs):
-    """
-    Funcion que se encarga de obtener la direccion del agente
-    input: int
-    output: str
-    """
+def camara2(v1, v2, v3):
+    mapa = {1: "OSCURO", 0: "NO OSCURO", -1: "PARED"}
+    return {'Celda Izq.': mapa[v1], 'Celda Cent.': mapa[v2], 'Celda Der.': mapa[v3]}
 
-    return {0: "Arriba", 1: "Derecha", 2: "Abajo", 3: "Izquierda"}[obs]
+def get_valor_seguro(mat, i, j):
+    if 0 <= i < mat.shape[0] and 0 <= j < mat.shape[1]:
+        return mat[i, j]
+    return -1
 
-def camara1(vision):
-    """
-    Funcion que simula la la camara 1 que sol mira el piso
-    input: bool
-    output: str
-    """
-    if vision:
-        return "OSCURO"
-    return "NO OSCURO"
-
-def camara2(valor1, valor2, valor3):
-    """
-    Funcion que simula la la camara 2 y que observa las 3 celdas delante del robot
-    input: int, int, int
-    output: dic{key:value}
-    """
-    
-    valores = {0:'NO OSCURO', 1: 'OSCURO', -1:'PARED'}
-    
-    return {'AVANZAR CELDA IZQUIERDA': valores[valor1],
-            'AVANZAR CELDA CENTRAL': valores[valor2],
-            'AVANZAR CELDA DERECHA': valores[valor3]
-        }
-
-def get_valor_seguro(matrix, i, j, valor_por_defecto=-1):
-    """
-    Funcion que verifica los limites de la matriz y algun calculo se sale de los lmites se marca como pared :-1
-
-    input: np.ndimm, int, int, int
-    output: int
-    """
-    filas, columnas = matrix.shape
-    if 0 <= i < filas and 0 <= j < columnas:
-        return matrix[i,j]
-    return valor_por_defecto
-
-def posicion_celdas_delanteras(ambiente, orientacion, pos):
-    """
-    fucion que se encarga de obtener las posiciones i, j de la celdas delantes vistas por la camara 2
-
-    input: matriz(n, m), int, tupla(int, int)
-    output: list(int, int, int)
-    """
+def posicion_celdas_delanteras(amb, o, pos):
     i, j = pos
-
-    # Arriba
-    if orientacion == 0: 
-        izq_valor = get_valor_seguro(ambiente, i-1, j-1 )
-        cen_valor = get_valor_seguro(ambiente, i-1, j)
-        der_valor =get_valor_seguro(ambiente, i-1, j+1)
-    
-    # Derecha
-    elif orientacion == 1:
-        izq_valor = get_valor_seguro(ambiente, i-1, j+1)
-        cen_valor = get_valor_seguro(ambiente, i, j+1)
-        der_valor = get_valor_seguro(ambiente, i+1, j+1)
-
-    # Abajo
-    elif orientacion == 2:
-        izq_valor = get_valor_seguro(ambiente, i+1, j+1)
-        cen_valor = get_valor_seguro(ambiente, i+1, j)
-        der_valor = get_valor_seguro(ambiente, i+1, j-1)
-    
-    # Izquierda
+    if o == 0:
+        return get_valor_seguro(amb,i-1,j-1), get_valor_seguro(amb,i-1,j), get_valor_seguro(amb,i-1,j+1)
+    elif o == 1:
+        return get_valor_seguro(amb,i-1,j+1), get_valor_seguro(amb,i,j+1), get_valor_seguro(amb,i+1,j+1)
+    elif o == 2:
+        return get_valor_seguro(amb,i+1,j+1), get_valor_seguro(amb,i+1,j), get_valor_seguro(amb,i+1,j-1)
     else:
-        izq_valor = get_valor_seguro(ambiente, i+1, j-1)
-        cen_valor = get_valor_seguro(ambiente, i, j-1)
-        der_valor = get_valor_seguro(ambiente, i-1, j-1)
+        return get_valor_seguro(amb,i+1,j-1), get_valor_seguro(amb,i,j-1), get_valor_seguro(amb,i-1,j-1)
 
-    return [izq_valor, cen_valor, der_valor]
-
-def decidir_accion(estados_delanteros, pasos_sin_linea):
-    """
-    funcion que se encarga de mover/girar al agente a una estado nuevo
-
-    input: dict(key, values), int
-    output: str
-    """
-    izq = estados_delanteros['AVANZAR CELDA IZQUIERDA']
-    cen = estados_delanteros['AVANZAR CELDA CENTRAL']
-    der = estados_delanteros['AVANZAR CELDA DERECHA']
-
-    if cen == "OSCURO":     # prioridad 1 buscar por el cen
-        return "AVANZAR CELDA CENTRAL"
-    if der == "OSCURO":   # prioridad 2 buscar por el der
-        return "AVANZAR CELDA DERECHA"
-    if izq == "OSCURO":  # prioridad 3 buscar por el izq
-        return "AVANZAR CELDA IZQUIERDA"
-    
-    # Línea perdida: rotar una vez, luego avanzar
-    # Ciclo determinista: +90 → avanzar → -90 → avanzar → repite
-    if pasos_sin_linea % 4 == 0:
+def decidir_accion(estados, pasos):
+    izq = estados['Celda Izq.']
+    cen = estados['Celda Cent.']
+    der = estados['Celda Der.']
+    if cen == "PARED":
+        return "ROTAR_-90"
+    if cen == "OSCURO":
+        return "AVANZAR"
+    if der == "OSCURO" and cen == "NO OSCURO":
+        return "AVANZAR,-90"
+    if izq == "OSCURO" and cen == "NO OSCURO":
+        return "AVANZAR,+90"
+    if der == "PARED" and cen == "NO OSCURO":
+        return "ROTAR_-90"
+    if izq == "PARED" and cen == "NO OSCURO":
+        return "ROTAR_-90"
+    if izq == "NO OSCURO" and cen == "NO OSCURO" and der == "NO OSCURO":
+            return "ROTAR_-90"
+    # Búsqueda
+    if pasos % 4 == 0:
         return "ROTAR_+90"
-    elif pasos_sin_linea % 4 == 1:
-        return "AVANZAR CELDA CENTRAL"
-    elif pasos_sin_linea % 4 == 2:
-        return "ROTAR_-90"
-    elif pasos_sin_linea % 4 == 3: # caso en las esquinas y estado blanco
+    elif pasos % 4 == 1:
+        return "AVANZAR"
+    elif pasos % 4 == 2:
         return "ROTAR_-90"
     else:
-        return "AVANZAR CELDA CENTRAL"
-    
+        return "ROTAR_-90"
 
-# ===== CONFIGURACIÓN DE LA INTERFAZ MATPLOTLIB =====
-plt.ion() # Modo interactivo encendido
-fig, (ax_mapa, ax_info) = plt.subplots(1, 2, figsize=(10, 5), gridspec_kw={'width_ratios': [1, 1]})
+def rotar(o, acc):
+    if acc == "ROTAR_-90":
+        return (o + 1) % 4
+    elif acc == "ROTAR_+90":
+        return (o - 1) % 4
+    return o
 
-def dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_delanteros):
-    """
-    Funcion que se encarga de dibujar la interfaz vizual
-    """
-    ax_mapa.clear()
-    
-    display_map = np.zeros((N, M, 3))  # ahora es RGB
-    for r in range(N):
-        for c in range(M):
-            if ambiente[r, c] == 1:
-                display_map[r, c] = [0.3, 0.3, 0.3]           # negro → línea
-            elif ambiente[r, c] == -1:
-                display_map[r, c] = [0.55, 0.27, 0.07]  # marrón → pared
+def avanzar_central(f, c, o):
+    if o == 0: return f-1, c
+    if o == 1: return f, c+1
+    if o == 2: return f+1, c
+    if o == 3: return f, c-1
+
+def es_valido(nf, nc):
+    return 0 <= nf < N and 0 <= nc < M and ambiente[nf, nc] != -1
+
+def describir(v):
+    return {1:"oscuro",0:"blanco",-1:"pared"}.get(v,"?")
+
+# ===== INTERFAZ GRAFICA =====
+plt.ion()
+fig, ax = plt.subplots()
+
+def dibujar(paso):
+    ax.clear()
+    img = np.zeros((N, M, 3))
+
+    for i in range(N):
+        for j in range(M):
+            if ambiente[i,j] == 1:
+                img[i,j] = [0.3,0.3,0.3]
+            elif ambiente[i,j] == -1:
+                img[i,j] = [0.6,0.3,0.1]
             else:
-                display_map[r, c] = [1, 1, 1]            # blanco → camino libre
+                img[i,j] = [1,1,1]
 
-    ax_mapa.imshow(display_map, origin='upper')  # sin cmap, ahora usa RGB directo
-    
-    # Dibujar al Robot (una flecha roja)
-    # Ajustamos la rotación (Matplotlib usa grados, 0 es derecha)
+    ax.imshow(img)
+
+    # Dibujar agente como flecha
     direcciones = {
-        0: (0, -0.35),  # Arriba
-        1: (0.35, 0),   # Derecha
-        2: (0, 0.35),   # Abajo
-        3: (-0.35, 0)   # Izquierda
+        0: (0, -0.4),  # arriba
+        1: (0.4, 0),  # derecha
+        2: (0, 0.4),  # abajo
+        3: (-0.4, 0)  # izquierda
     }
     dx, dy = direcciones[orientacion]
-    x_inicio = agent_pos[1] - (dx / 2)
-    y_inicio = agent_pos[0] - (dy / 2)
-    # Dibujamos una flecha con cuerpo y cabeza
-    ax_mapa.arrow(x_inicio, y_inicio, dx, dy, 
-             head_width=0.3,      # Ancho de la punta
-             head_length=0.3,     # Largo de la punta
-             width=0.08,          # Grosor de la colita
-             fc='red', ec='darkred', zorder=5)
-    
-    # ── agregar estas 2 líneas ──
-    ax_mapa.set_xlim(-0.5, M - 0.5)
-    ax_mapa.set_ylim(N - 0.5, -0.5)  # invertido porque origin='upper'
+
+    ax.arrow(
+        agent_pos[1] - dx / 2,
+        agent_pos[0] - dy / 2,
+        dx, dy,
+        head_width=0.3,
+        head_length=0.3,
+        width=0.08,
+        fc='red',
+        ec='darkred',
+        zorder=5
+    )
+
+    # Sombra
+    for r in range(N):
+        for c in range(M):
+            sombra = patches.Rectangle(
+                (c - 0.45, r - 0.45), 1, 1,
+                facecolor=[0.2, 0.2, 0.2],  # sombra (gris oscuro suave),
+                alpha=0.08,
+                linewidth=0,
+                zorder=1
+            )
+            ax.add_patch(sombra)
+
+    # Hatch en paredes
+    for r in range(N):
+        for c in range(M):
+            if ambiente[r, c] == -1:
+                rect = patches.Rectangle(
+                    (c - 0.5, r - 0.5), 1, 1,
+                    hatch='--',
+                    fill=False,
+                    edgecolor='darkred',
+                    linewidth=0,
+                    zorder=3
+                )
+                ax.add_patch(rect)
 
     # Estética de la cuadrícula
-    ax_mapa.set_title(f"Ambiente - Paso {paso}")
-    ax_mapa.grid(which='minor', color='black', linestyle='-', linewidth=1)
-    ax_mapa.set_xticks(np.arange(-.5, M, 1), minor=True)
-    ax_mapa.set_yticks(np.arange(-.5, N, 1), minor=True)
-    
-    # 2 LIMPIAR Y DIBUJAR
-    ax_info.clear()
-    ax_info.axis('off') # Ocultar ejes del panel de texto
-    
-    info_texto = (
-        f"--- ESTADO DEL AGENTE ---\n\n"
-        f"Paso actual: {paso}\n"
-        f"Posición: {agent_pos}\n"
-        f"Orientación: {obtener_orientacion_str(orientacion)}\n\n"
-        f"--- SENSORES ---\n"
-        f"Estado Actual: {estado_actual}\n"
-        f"Valores delante: {v_izq, v_cen, v_der}\n"
-        f"Percepción:\n  Izq: {estados_delanteros['AVANZAR CELDA IZQUIERDA']}\n"
-        f"  Cen: {estados_delanteros['AVANZAR CELDA CENTRAL']}\n"
-        f"  Der: {estados_delanteros['AVANZAR CELDA DERECHA']}\n\n"
-        f"--- DECISIÓN ---\n"
-        f"Acción: {accion}"
-    )
-    # Escribir el texto en el segundo subplot
-    ax_info.text(0.05, 0.95, info_texto, transform=ax_info.transAxes, 
-                 fontsize=11, verticalalignment='top', family='monospace',
-                 bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+    ax.set_title(f"Paso {paso + 1}")
+    # Límites del eje
+    ax.set_xlim(-0.5, M - 0.5)
+    ax.set_ylim(N - 0.5, -0.5)
+
+    # Ticks mayores (ocultos)
+    ax.set_xticks(np.arange(0, M, 1))
+    ax.set_yticks(np.arange(0, N, 1))
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+
+    # Ticks menores (para la grilla)
+    ax.set_xticks(np.arange(-0.5, M, 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, N, 1), minor=True)
+
+    # Cuadrícula
+    ax.grid(which='minor', color='black', linestyle='-', linewidth=1)
+
+    # Bordes negros gruesos
+    for spine in ax.spines.values():
+        spine.set_visible(True)  # importante
+        spine.set_edgecolor('black')  # negro
+        spine.set_linewidth(3)  # grosor
+
     plt.draw()
-    plt.pause(1.0)
+    plt.pause(0.7)
 
-# ===== BUCLE DE OPERACIÓN CON INTERFAZ ======
-"""
-Funcion principal del agente donde  percibe su entonro y actua
-"""
-try:
-    for paso in range(max_pasos):
-        # Lógica de sensores (PERCEPCIONES)
+    # GUARDAR IMAGEN
+    nombre_archivo = os.path.join(carpeta_frames, f"frame_paso_{paso + 1:03d}.png")
+    plt.savefig(nombre_archivo)
 
-        f, c = agent_pos
-        es_oscuro = ambiente[f, c] == 1
-        estado_actual = camara1(es_oscuro)
-        v_izq, v_cen, v_der = posicion_celdas_delanteras(ambiente, orientacion, agent_pos)
-        estados_delanteros = camara2(v_izq, v_cen, v_der)
+# ===== LOOP =====
+pasos_sin_linea = 0
+estados_visitados = {}  # {(f, c, orientacion, pasos_sin_linea % 4): paso}
+bucle_info = None
 
-        # detectar si hay linea visible
-        hay_linea = any(
-            v == "OSCURO" for v in estados_delanteros.values()
-        )
+for paso in range(max_pasos):
+    f, c = agent_pos
+    estado_actual = camara1(ambiente[f,c] == 1)
+    v_izq, v_cen, v_der = posicion_celdas_delanteras(ambiente, orientacion, agent_pos)
+    estados = camara2(v_izq, v_cen, v_der)
+    hay_linea = any(v=="OSCURO" for v in estados.values())
+    pasos_sin_linea = 0 if hay_linea else pasos_sin_linea + 1
 
-        if hay_linea:
-            pasos_sin_linea = 0 # resetear contador 
-        else:
-            pasos_sin_linea += 1 #acumular perdida
+    # Detección de bucle infinito: estado interno repetido => decisión repetida (entorno estático)
+    clave_estado = (f, c, orientacion, pasos_sin_linea % 4)
+    if clave_estado in estados_visitados and bucle_info is None:
+        inicio = estados_visitados[clave_estado]
+        largo_ciclo = paso - inicio
+        bucle_info = {
+            "iter_hasta_bucle": inicio + 1,
+            "largo_ciclo": largo_ciclo,
+            "complejidad_total": paso + 1,
+        }
+        print(f"\n>>> BUCLE detectado en paso {paso+1}")
+        print(f"    Primera visita del estado: paso {inicio+1}")
+        print(f"    Iteraciones hasta entrar al bucle: {inicio+1}")
+        print(f"    Largo del ciclo: {largo_ciclo}")
+        print(f"    Complejidad total: {inicio+1} + {largo_ciclo} (bucle)")
+        break
+    estados_visitados[clave_estado] = paso
 
-        accion = decidir_accion(estados_delanteros, pasos_sin_linea)
-        
-        # Dibujar antes de mover para ver el estado actual
-        dibujar_mundo(paso, accion, v_izq, v_cen, v_der, estado_actual, estados_delanteros)
-        
-        print(f"\nPASO: {paso}")
-        print(f"Posicion: {agent_pos} | Orientacion: {obtener_orientacion_str(orientacion)}")
-        print(f"valores delanteos: Izq= {v_izq}, Cen= {v_cen}, Der= {v_der}")
-        print(f"Estado Actual: {estado_actual}")
-        print(f"Estados delante: {estados_delanteros}")
-        print(f"Accion: {accion}")
-        print(f"="*70)
+    accion = decidir_accion(estados, pasos_sin_linea)
+    dibujar(paso)
+    print(f"\nPaso {paso+1}")
+    print(f"Pos: [{agent_pos[0] + 1}, {agent_pos[1] + 1}] | {obtener_orientacion_str(orientacion)}")
+    print(f"Celda actual (CAM1): {estado_actual}")
+    print(f"Celdas delanteras (CAM2):")
+    print(f"Izq:{describir(v_izq)} Cen:{describir(v_cen)} Der:{describir(v_der)}")
+    print(f"Contacto: {'Si' if v_cen == -1 else 'No'}")
+    print(f"Acción: {accion}")
 
-        # EJECUTAR LAS ACCIONES (Simplificado para el ejemplo)
-        
-        if accion == "ROTAR_-90":
-            orientacion = (orientacion + 1) % 4
-            
-        elif accion =="ROTAR_+90":
-            if orientacion == 0:
-                orientacion = 4
-            orientacion = (orientacion - 1) % 4
-        else:
-            # Lógica de movimiento
-            nf, nc = f, c
-            if accion == "AVANZAR CELDA CENTRAL":
-                if orientacion == 0: nf -= 1
-                elif orientacion == 1: nc += 1
-                elif orientacion == 2: nf += 1
-                elif orientacion == 3: nc -= 1
-                # Validar límites y paredes
-                if 0 <= nf < N and 0 <= nc < M and ambiente[nf, nc] != -1:
-                    agent_pos = [nf, nc]
-                else:
-                    pared = True
-            elif accion == "AVANZAR CELDA IZQUIERDA":
-                if orientacion == 0: nf, nc = f-1, c-1
-                elif orientacion == 1: nf, nc = f-1, c+1
-                elif orientacion == 2: nf, nc = f+1, c+1
-                elif orientacion == 3: nf, nc = f+1, c-1
-                # Validar límites y paredes
-                if 0 <= nf < N and 0 <= nc < M and ambiente[nf, nc] != -1:
-                    agent_pos = [nf, nc]
-                else:
-                    pared = True
-            elif accion == "AVANZAR CELDA DERECHA":
-                if orientacion == 0: nf, nc = f-1, c+1
-                elif orientacion == 1: nf, nc = f+1, c+1
-                elif orientacion == 2: nf, nc = f+1, c-1
-                elif orientacion == 3: nf, nc = f-1, c-1
-                # Validar límites y paredes
-                if 0 <= nf < N and 0 <= nc < M and ambiente[nf, nc] != -1:
-                    agent_pos = [nf, nc]
-                else:
-                    pared = True
-            
-    print("Simulación terminada.")
-    plt.ioff()
-    plt.show()
+    # ===== EJECUCIÓN =====
+    for acc in accion.split(","):
 
-except KeyboardInterrupt:
-    print("Simulación detenida por el usuario.")
+        if acc == "AVANZAR":
+            nf, nc = avanzar_central(agent_pos[0], agent_pos[1], orientacion)
 
+            if es_valido(nf, nc):
+                agent_pos = [nf, nc]
+            else:
+                break
+        elif acc == "+90":
+            orientacion = rotar(orientacion, "ROTAR_+90")
+        elif acc == "-90":
+            orientacion = rotar(orientacion, "ROTAR_-90")
+        elif acc in ["ROTAR_+90", "ROTAR_-90"]:
+            orientacion = rotar(orientacion, acc)
 
-
-
-
-
-
-"""
-Como correr: En terminal de VScode 
-* Abrir terminal:       ctrl + shift + ñ
-* Correr:               python agents/tarea3_view.py 
-"""
+print("\nSimulación terminada")
+if bucle_info is not None:
+    print(f"Iteraciones hasta entrar al bucle: {bucle_info['iter_hasta_bucle']}")
+    print(f"Largo del ciclo: {bucle_info['largo_ciclo']}")
+    print(f"Complejidad total: {bucle_info['iter_hasta_bucle']} + {bucle_info['largo_ciclo']} (bucle)")
+else:
+    print(f"No se detectó bucle en {max_pasos} pasos.")
+plt.ioff()
+plt.show()
